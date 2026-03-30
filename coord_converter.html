@@ -122,16 +122,15 @@
   <label>좌표계 선택</label>
   <select id="crs">
     <option value="grs80" selected>GRS80 TM 중부원점 (EPSG:5186)</option>
-    <option value="bessel">Bessel TM 중부원점 (EPSG:5174)</option>
   </select>
 
   <div class="row">
     <div>
-      <label>X 좌표 (Northing)</label>
+      <label>X 좌표 (Easting, 동향)</label>
       <input type="text" id="inX" placeholder="예: 282957" inputmode="decimal">
     </div>
     <div>
-      <label>Y 좌표 (Easting)</label>
+      <label>Y 좌표 (Northing, 북향)</label>
       <input type="text" id="inY" placeholder="예: 306805" inputmode="decimal">
     </div>
   </div>
@@ -153,11 +152,6 @@
 </div>
 
 <script>
-// EPSG:5174 — Bessel TM 중부원점
-proj4.defs("EPSG:5174",
-  "+proj=tmerc +lat_0=38 +lon_0=127.0028902777778 +k=1 " +
-  "+x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs " +
-  "+towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43");
 
 // EPSG:5186 — GRS80 TM 중부원점
 proj4.defs("EPSG:5186",
@@ -192,7 +186,7 @@ function convert() {
   try {
     var epsg = crs === 'bessel' ? 'EPSG:5174' : 'EPSG:5186';
     // proj4: (easting=Y, northing=X) → [lon, lat]
-    var result = proj4(epsg, 'EPSG:4326', [y, x]);
+    var result = proj4(epsg, 'EPSG:4326', [x, y]);
     var lon = result[0], lat = result[1];
 
     // 대략적인 범위 체크 (한반도: 위도 33~39, 경도 124~132)
