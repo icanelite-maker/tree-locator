@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🌳 나무 위치 찾기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 28px 20px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  h1 {
+    text-align: center;
+    color: #2E7D32;
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  select, input[type="text"] {
+    width: 100%;
+    padding: 13px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    font-size: 16px;
+    color: #222;
+    background: #fafafa;
+    margin-bottom: 16px;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: #2E7D32; background: #fff; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    background: #2E7D32;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: background 0.15s;
+  }
+  .btn:active { background: #1b5e20; }
+  .result-box {
+    margin-top: 20px;
+    background: #E8F5E9;
+    border-radius: 12px;
+    padding: 16px;
+    display: none;
+  }
+  .result-box.show { display: block; }
+  .result-label { font-size: 12px; color: #555; margin-bottom: 4px; }
+  .result-val { font-size: 17px; font-weight: 600; color: #1b5e20; margin-bottom: 12px; }
+  .map-btn {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    background: #1565C0;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    margin-top: 4px;
+  }
+  .error-box {
+    margin-top: 16px;
+    background: #FFEBEE;
+    color: #c62828;
+    border-radius: 10px;
+    padding: 13px;
+    font-size: 14px;
+    display: none;
+  }
+  .error-box.show { display: block; }
+  .divider { border: none; border-top: 1.5px solid #f0f0f0; margin: 20px 0; }
+  .tip { font-size: 12px; color: #aaa; text-align: center; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌳 나무 위치 찾기</h1>
+  <p class="subtitle">산청군 임야 좌표 → 구글지도</p>
+
+  <label>좌표계 선택</label>
+  <select id="crs">
+    <option value="grs80">GRS80 TM 중부원점 (EPSG:5186)</option>
+    <option value="bessel" selected>Bessel TM 중부원점 (EPSG:5174)</option>
+  </select>
+
+  <div class="row">
+    <div>
+      <label>X 좌표 (Northing)</label>
+      <input type="text" id="inX" placeholder="예: 282957" inputmode="decimal">
+    </div>
+    <div>
+      <label>Y 좌표 (Easting)</label>
+      <input type="text" id="inY" placeholder="예: 306805" inputmode="decimal">
+    </div>
+  </div>
+
+  <button class="btn" onclick="convert()">📍 좌표 변환 &amp; 지도 보기</button>
+
+  <div class="error-box" id="errBox"></div>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-label">변환된 위도 (Latitude)</div>
+    <div class="result-val" id="outLat">—</div>
+    <div class="result-label">변환된 경도 (Longitude)</div>
+    <div class="result-val" id="outLon">—</div>
+    <a class="map-btn" id="mapLink" target="_blank">🗺 구글지도에서 열기</a>
+  </div>
+
+  <hr class="divider">
+  <p class="tip">좌표계가 맞지 않으면 위에서 다른 좌표계를 선택해보세요.<br>변환 결과가 경남 산청군 부근이어야 정상입니다.</p>
+</div>
+
+<script>
+// EPSG:5174 — Bessel TM 중부원점
+proj4.defs("EPSG:5174",
+  "+proj=tmerc +lat_0=38 +lon_0=127.0028902777778 +k=1 " +
+  "+x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs " +
+  "+towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43");
+
+// EPSG:5186 — GRS80 TM 중부원점
+proj4.defs("EPSG:5186",
+  "+proj=tmerc +lat_0=38 +lon_0=127 +k=1 " +
+  "+x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs");
+
+function convert() {
+  var errBox    = document.getElementById('errBox');
+  var resultBox = document.getElementById('resultBox');
+  errBox.className    = 'error-box';
+  resultBox.className = 'result-box';
+
+  var xStr = document.getElementById('inX').value.trim();
+  var yStr = document.getElementById('inY').value.trim();
+  var crs  = document.getElementById('crs').value;
+
+  if (!xStr || !yStr) {
+    errBox.textContent = 'X, Y 좌표를 모두 입력해주세요.';
+    errBox.className = 'error-box show';
+    return;
+  }
+
+  var x = parseFloat(xStr.replace(/,/g, ''));
+  var y = parseFloat(yStr.replace(/,/g, ''));
+
+  if (isNaN(x) || isNaN(y)) {
+    errBox.textContent = '숫자만 입력해주세요.';
+    errBox.className = 'error-box show';
+    return;
+  }
+
+  try {
+    var epsg = crs === 'bessel' ? 'EPSG:5174' : 'EPSG:5186';
+    // proj4: (easting=Y, northing=X) → [lon, lat]
+    var result = proj4(epsg, 'EPSG:4326', [y, x]);
+    var lon = result[0], lat = result[1];
+
+    // 대략적인 범위 체크 (한반도: 위도 33~39, 경도 124~132)
+    if (lat < 33 || lat > 39 || lon < 124 || lon > 132) {
+      errBox.textContent = '변환 결과가 한반도 범위를 벗어났습니다. 좌표계를 바꿔보세요.';
+      errBox.className = 'error-box show';
+      return;
+    }
+
+    document.getElementById('outLat').textContent = lat.toFixed(6);
+    document.getElementById('outLon').textContent = lon.toFixed(6);
+    document.getElementById('mapLink').href =
+      'https://maps.google.com/?q=' + lat.toFixed(6) + ',' + lon.toFixed(6);
+    resultBox.className = 'result-box show';
+
+  } catch(e) {
+    errBox.textContent = '변환 오류: ' + e.message;
+    errBox.className = 'error-box show';
+  }
+}
+
+// 엔터키로도 변환 가능
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') convert();
+});
+</script>
+</body>
+</html>
