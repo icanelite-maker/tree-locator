@@ -36,6 +36,16 @@
     font-size: 13px;
     margin-bottom: 24px;
   }
+  .crs-badge {
+    text-align: center;
+    background: #E8F5E9;
+    color: #2E7D32;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 20px;
+  }
   label {
     display: block;
     font-size: 13px;
@@ -43,7 +53,7 @@
     margin-bottom: 6px;
     font-weight: 500;
   }
-  select, input[type="text"] {
+  input[type="text"] {
     width: 100%;
     padding: 13px 14px;
     border: 1.5px solid #ddd;
@@ -52,12 +62,10 @@
     color: #222;
     background: #fafafa;
     margin-bottom: 16px;
-    appearance: none;
-    -webkit-appearance: none;
     outline: none;
     transition: border-color 0.2s;
   }
-  select:focus, input:focus { border-color: #2E7D32; background: #fff; }
+  input:focus { border-color: #2E7D32; background: #fff; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
   .btn {
@@ -110,8 +118,7 @@
     display: none;
   }
   .error-box.show { display: block; }
-  .divider { border: none; border-top: 1.5px solid #f0f0f0; margin: 20px 0; }
-  .tip { font-size: 12px; color: #aaa; text-align: center; margin-top: 16px; line-height: 1.6; }
+  .tip { font-size: 12px; color: #aaa; text-align: center; margin-top: 20px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -119,19 +126,16 @@
   <h1>🌳 나무 위치 찾기</h1>
   <p class="subtitle">산청군 임야 좌표 → 구글지도</p>
 
-  <label>좌표계 선택</label>
-  <select id="crs">
-    <option value="grs80" selected>GRS80 TM 중부원점 (EPSG:5186)</option>
-  </select>
+  <div class="crs-badge">GRS80 TM 중부원점 (EPSG:5186)</div>
 
   <div class="row">
     <div>
       <label>X 좌표 (Easting, 동향)</label>
-      <input type="text" id="inX" placeholder="예: 282957" inputmode="decimal">
+      <input type="text" id="inX" placeholder="예: 284032" inputmode="decimal">
     </div>
     <div>
       <label>Y 좌표 (Northing, 북향)</label>
-      <input type="text" id="inY" placeholder="예: 306805" inputmode="decimal">
+      <input type="text" id="inY" placeholder="예: 306370" inputmode="decimal">
     </div>
   </div>
 
@@ -147,13 +151,10 @@
     <a class="map-btn" id="mapLink" target="_blank">🗺 구글지도에서 열기</a>
   </div>
 
-  <hr class="divider">
-  <p class="tip">좌표계가 맞지 않으면 위에서 다른 좌표계를 선택해보세요.<br>변환 결과가 경남 산청군 부근이어야 정상입니다.</p>
+  <p class="tip">변환 결과가 경남 산청군 부근이어야 정상입니다.</p>
 </div>
 
 <script>
-
-// EPSG:5186 — GRS80 TM 중부원점
 proj4.defs("EPSG:5186",
   "+proj=tmerc +lat_0=38 +lon_0=127 +k=1 " +
   "+x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs");
@@ -166,7 +167,6 @@ function convert() {
 
   var xStr = document.getElementById('inX').value.trim();
   var yStr = document.getElementById('inY').value.trim();
-  var crs  = document.getElementById('crs').value;
 
   if (!xStr || !yStr) {
     errBox.textContent = 'X, Y 좌표를 모두 입력해주세요.';
@@ -184,14 +184,12 @@ function convert() {
   }
 
   try {
-    var epsg = crs === 'bessel' ? 'EPSG:5174' : 'EPSG:5186';
-    // proj4: (easting=Y, northing=X) → [lon, lat]
-    var result = proj4(epsg, 'EPSG:4326', [x, y]);
+    // EPSG:5186 입력 순서: [Easting=X, Northing=Y]
+    var result = proj4("EPSG:5186", "EPSG:4326", [x, y]);
     var lon = result[0], lat = result[1];
 
-    // 대략적인 범위 체크 (한반도: 위도 33~39, 경도 124~132)
     if (lat < 33 || lat > 39 || lon < 124 || lon > 132) {
-      errBox.textContent = '변환 결과가 한반도 범위를 벗어났습니다. 좌표계를 바꿔보세요.';
+      errBox.textContent = '변환 결과가 한반도 범위를 벗어났습니다. X, Y 값을 확인해주세요.';
       errBox.className = 'error-box show';
       return;
     }
@@ -208,7 +206,6 @@ function convert() {
   }
 }
 
-// 엔터키로도 변환 가능
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') convert();
 });
